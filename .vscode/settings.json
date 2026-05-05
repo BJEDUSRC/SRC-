@@ -1,0 +1,52 @@
+{
+  // 文件编码设置
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false,
+  "files.eol": "\n",
+  
+  // Python 设置
+  "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--line-length=120"
+  ],
+  
+  // 编辑器设置
+  "editor.formatOnSave": true,
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.rulers": [120],
+  
+  // 文件关联
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  
+  "[markdown]": {
+    "editor.wordWrap": "on"
+  },
+  
+  // 排除文件
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/venv": false
+  },
+  
+  "search.exclude": {
+    "**/venv": true,
+    "**/__pycache__": true
+  }
+}

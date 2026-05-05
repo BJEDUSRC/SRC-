@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - SRC脱敏标注数据管理系统{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item active">首页</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- 欢迎横幅 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-primary text-white">
+            <div class="card-body p-5">
+                <h1 class="display-4">
+                    <i class="bi bi-shield-lock"></i>
+                    欢迎使用 SRC 数据管理系统
+                </h1>
+                <p class="lead mt-3">
+                    基于大模型的智能文档管理平台，提供 PDF 转换、敏感数据脱敏、全文搜索、批量下载等功能
+                </p>
+                <hr class="my-4 bg-white">
+                <div class="row mt-4 g-3">
+                    <div class="col-md-4 col-6">
+                        <a href="/upload" class="btn btn-light btn-lg btn-icon w-100">
+                            <i class="bi bi-cloud-upload"></i>
+                            上传文档
+                        </a>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <a href="/query" class="btn btn-outline-light btn-lg btn-icon w-100">
+                            <i class="bi bi-search"></i>
+                            查询文档
+                        </a>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <a href="/download" class="btn btn-outline-light btn-lg btn-icon w-100">
+                            <i class="bi bi-download"></i>
+                            下载管理
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-6">
+                        <a href="/convert" class="btn btn-warning btn-lg btn-icon w-100">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                            PDF转换
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-6">
+                        <a href="/desensitize" class="btn btn-success btn-lg btn-icon w-100">
+                            <i class="bi bi-shield-lock"></i>
+                            数据脱敏
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 统计数据卡片 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">总文档数</h6>
+                        <h2 class="mb-0" id="totalDocs">-</h2>
+                    </div>
+                    <div class="fs-1 text-primary">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">已脱敏文档</h6>
+                        <h2 class="mb-0" id="desensitizedDocs">-</h2>
+                    </div>
+                    <div class="fs-1 text-success">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">总图片数</h6>
+                        <h2 class="mb-0" id="totalImages">-</h2>
+                    </div>
+                    <div class="fs-1 text-info">
+                        <i class="bi bi-image"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card border-start border-warning border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">下载次数</h6>
+                        <h2 class="mb-0" id="totalDownloads">-</h2>
+                    </div>
+                    <div class="fs-1 text-warning">
+                        <i class="bi bi-download"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近文档 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history"></i> 最近上传的文档</span>
+                <a href="/query" class="btn btn-sm btn-primary">查看全部</a>
+            </div>
+            <div class="card-body">
+                <div id="recentDocsLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="text-muted mt-2">加载中...</p>
+                </div>
+                <div id="recentDocsTable" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>文件名</th>
+                                    <th>大小</th>
+                                    <th>图片数</th>
+                                    <th>脱敏状态</th>
+                                    <th>上传时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentDocsList">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="recentDocsEmpty" style="display: none;" class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">暂无文档，<a href="/upload">立即上传</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 功能特性 -->
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="fs-1 text-primary mb-3">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                </div>
+                <h5 class="card-title">智能PDF转换</h5>
+                <p class="card-text text-muted">
+                    自动提取PDF文本、表格和图片，转换为 Markdown 格式，保持原始排版结构
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="fs-1 text-success mb-3">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+                <h5 class="card-title">数据脱敏</h5>
+                <p class="card-text text-muted">
+                    基于大模型的智能脱敏机制，保护敏感信息（IP、身份证、地址等）
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="fs-1 text-info mb-3">
+                    <i class="bi bi-search"></i>
+                </div>
+                <h5 class="card-title">全文搜索</h5>
+                <p class="card-text text-muted">
+                    支持关键词搜索、时间范围查询、标签筛选等多种查询方式，快速定位目标文档
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 页面加载时获取统计数据
+    document.addEventListener('DOMContentLoaded', function () {
+        loadStats();
+        loadRecentDocs();
+    });
+
+    // 加载统计数据
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/v1/documents/?page=1&page_size=1000');
+            const data = await response.json();
+
+            if (response.ok) {
+                // 总文档数
+                document.getElementById('totalDocs').textContent = data.total || 0;
+
+                // 已脱敏文档数
+                const desensitizedCount = data.items.filter(doc => doc.is_desensitized).length;
+                document.getElementById('desensitizedDocs').textContent = desensitizedCount;
+
+                // 总图片数
+                const totalImages = data.items.reduce((sum, doc) => sum + (doc.images_count || 0), 0);
+                document.getElementById('totalImages').textContent = totalImages;
+
+                // 下载次数（这里使用占位符，实际需要专门的API）
+                document.getElementById('totalDownloads').textContent = '-';
+            }
+        } catch (error) {
+            console.error('加载统计数据失败:', error);
+        }
+    }
+
+    // 加载最近文档
+    async function loadRecentDocs() {
+        try {
+            const response = await fetch('/api/v1/documents/?page=1&page_size=10&sort_by=created_at&sort_order=desc');
+            const data = await response.json();
+
+            document.getElementById('recentDocsLoading').style.display = 'none';
+
+            if (response.ok && data.items && data.items.length > 0) {
+                document.getElementById('recentDocsTable').style.display = 'block';
+
+                const tbody = document.getElementById('recentDocsList');
+                tbody.innerHTML = data.items.map(doc => `
+                    <tr>
+                        <td>
+                            <i class="bi bi-file-earmark-text text-primary"></i>
+                            ${doc.filename}
+                        </td>
+                        <td>${formatFileSize(doc.file_size || 0)}</td>
+                        <td>
+                            ${doc.images_count > 0 ?
+                        `<span class="badge bg-info">${doc.images_count}</span>` :
+                        '<span class="text-muted">0</span>'
+                    }
+                        </td>
+                        <td>
+                            ${doc.is_desensitized ?
+                        '<span class="badge bg-success"><i class="bi bi-shield-check"></i> 已脱敏</span>' :
+                        '<span class="badge bg-secondary">未脱敏</span>'
+                    }
+                        </td>
+                        <td>${formatDateTime(doc.created_at)}</td>
+                        <td>
+                            <a href="/api/v1/download/${doc.id}?include_images=false" 
+                               class="btn btn-sm btn-outline-primary"
+                               title="下载MD文件">
+                                <i class="bi bi-download"></i>
+                            </a>
+                            ${doc.images_count > 0 ?
+                        `<a href="/api/v1/download/${doc.id}?include_images=true" 
+                                    class="btn btn-sm btn-outline-success"
+                                    title="下载ZIP（含图片）">
+                                    <i class="bi bi-file-zip"></i>
+                                </a>` : ''
+                    }
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                document.getElementById('recentDocsEmpty').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('加载最近文档失败:', error);
+            document.getElementById('recentDocsLoading').style.display = 'none';
+            document.getElementById('recentDocsEmpty').style.display = 'block';
+        }
+    }
+</script>
+{% endblock %}

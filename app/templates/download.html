@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}下载管理 - SRC脱敏标注数据管理系统{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">首页</a></li>
+        <li class="breadcrumb-item active">下载管理</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 下载统计卡片 -->
+    <div class="col-md-4 mb-4">
+        <div class="card border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">总下载次数</h6>
+                        <h2 class="mb-0" id="totalDownloads">-</h2>
+                    </div>
+                    <div class="fs-1 text-primary">
+                        <i class="bi bi-download"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">单文件下载</h6>
+                        <h2 class="mb-0" id="singleDownloads">-</h2>
+                    </div>
+                    <div class="fs-1 text-success">
+                        <i class="bi bi-file-earmark"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">批量下载</h6>
+                        <h2 class="mb-0" id="batchDownloads">-</h2>
+                    </div>
+                    <div class="fs-1 text-info">
+                        <i class="bi bi-files"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快速下载 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-lightning"></i> 快速下载
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-file-earmark"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="quickDocId" 
+                                   placeholder="输入文档ID进行快速下载">
+                            <button class="btn btn-primary" 
+                                    type="button" 
+                                    onclick="quickDownload('md')">
+                                <i class="bi bi-file-earmark-text"></i>
+                                下载MD
+                            </button>
+                            <button class="btn btn-success" 
+                                    type="button" 
+                                    onclick="quickDownload('zip')">
+                                <i class="bi bi-file-zip"></i>
+                                下载ZIP
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i>
+                            直接输入文档ID快速下载文件
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="/query" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-search"></i>
+                            查找文档ID
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 下载记录 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history"></i> 下载记录</span>
+                <div>
+                    <select class="form-select form-select-sm" id="filterType">
+                        <option value="">全部类型</option>
+                        <option value="single">单文件</option>
+                        <option value="batch">批量</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 加载指示器 -->
+                <div id="logsLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="text-muted mt-2">加载下载记录...</p>
+                </div>
+                
+                <!-- 记录表格 -->
+                <div id="logsTable" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>文档ID</th>
+                                    <th>下载类型</th>
+                                    <th>包含图片</th>
+                                    <th>下载时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsList">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 加载更多 -->
+                    <div class="text-center mt-3">
+                        <button class="btn btn-outline-primary" 
+                                id="loadMoreBtn" 
+                                onclick="loadMoreLogs()">
+                            <i class="bi bi-arrow-down-circle"></i>
+                            加载更多
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 空记录提示 -->
+                <div id="logsEmpty" style="display: none;" class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">暂无下载记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 使用说明 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-question-circle"></i> 下载说明
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-file-earmark-text"></i> MD文件下载</h6>
+                        <p class="text-muted">
+                            仅下载转换后的 Markdown 格式文件，不包含图片。适合只需要文本内容的场景。
+                        </p>
+                        
+                        <h6 class="mt-3"><i class="bi bi-file-zip"></i> ZIP文件下载</h6>
+                        <p class="text-muted">
+                            下载包含 Markdown 文件和所有图片的 ZIP 压缩包。保持完整的文档结构和引用关系。
+                        </p>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-files"></i> 批量下载</h6>
+                        <p class="text-muted">
+                            在查询页面选中多个文档后，可以一次性打包下载。系统会为每个文档创建独立的子目录，保持文档结构清晰。
+                        </p>
+                        
+                        <h6 class="mt-3"><i class="bi bi-graph-up"></i> 下载统计</h6>
+                        <p class="text-muted">
+                            系统会自动记录每次下载操作，您可以查看各文档的下载次数和下载历史。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allLogs = [];
+    let displayedCount = 0;
+    const pageSize = 20;
+    
+    // 页面加载时获取数据
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadLogs();
+    });
+    
+    // 类型筛选
+    document.getElementById('filterType').addEventListener('change', function() {
+        displayedCount = 0;
+        renderLogs();
+    });
+    
+    // 加载统计数据
+    async function loadStats() {
+        try {
+            // 这里需要一个专门的统计API，暂时使用占位符
+            // TODO: 实现全局统计API
+            document.getElementById('totalDownloads').textContent = '-';
+            document.getElementById('singleDownloads').textContent = '-';
+            document.getElementById('batchDownloads').textContent = '-';
+        } catch (error) {
+            console.error('加载统计数据失败:', error);
+        }
+    }
+    
+    // 加载下载记录
+    async function loadLogs() {
+        try {
+            // 获取所有文档的下载记录
+            const docsResponse = await fetch('/api/v1/documents/?page=1&page_size=1000');
+            const docsData = await docsResponse.json();
+            
+            if (!docsResponse.ok) {
+                throw new Error('获取文档列表失败');
+            }
+            
+            // 获取每个文档的下载记录
+            const logsPromises = docsData.items.map(async doc => {
+                try {
+                    const response = await fetch(`/api/v1/download/logs/${doc.id}?limit=100`);
+                    if (response.ok) {
+                        const logs = await response.json();
+                        return logs.map(log => ({
+                            ...log,
+                            document_filename: doc.filename
+                        }));
+                    }
+                    return [];
+                } catch (error) {
+                    return [];
+                }
+            });
+            
+            const logsArrays = await Promise.all(logsPromises);
+            allLogs = logsArrays.flat().sort((a, b) => 
+                new Date(b.download_time) - new Date(a.download_time)
+            );
+            
+            document.getElementById('logsLoading').style.display = 'none';
+            
+            if (allLogs.length > 0) {
+                document.getElementById('logsTable').style.display = 'block';
+                renderLogs();
+                
+                // 计算统计数据
+                const total = allLogs.length;
+                const single = allLogs.filter(log => log.download_type === 'single').length;
+                const batch = allLogs.filter(log => log.download_type === 'batch').length;
+                
+                document.getElementById('totalDownloads').textContent = total;
+                document.getElementById('singleDownloads').textContent = single;
+                document.getElementById('batchDownloads').textContent = batch;
+            } else {
+                document.getElementById('logsEmpty').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('加载下载记录失败:', error);
+            document.getElementById('logsLoading').style.display = 'none';
+            document.getElementById('logsEmpty').style.display = 'block';
+        }
+    }
+    
+    // 渲染记录列表
+    function renderLogs() {
+        const filterType = document.getElementById('filterType').value;
+        const filteredLogs = filterType ? 
+            allLogs.filter(log => log.download_type === filterType) : 
+            allLogs;
+        
+        const logsToDisplay = filteredLogs.slice(0, displayedCount + pageSize);
+        displayedCount = logsToDisplay.length;
+        
+        const logsList = document.getElementById('logsList');
+        logsList.innerHTML = logsToDisplay.map(log => `
+            <tr>
+                <td>
+                    <div class="text-truncate" style="max-width: 200px;" title="${log.document_id}">
+                        ${log.document_id}
+                    </div>
+                    ${log.document_filename ? 
+                        `<small class="text-muted">${log.document_filename}</small>` : ''
+                    }
+                </td>
+                <td>
+                    ${log.download_type === 'single' ? 
+                        '<span class="badge bg-success">单文件</span>' : 
+                        '<span class="badge bg-info">批量</span>'
+                    }
+                </td>
+                <td>
+                    ${log.include_images ? 
+                        '<i class="bi bi-check-circle text-success"></i> 是' : 
+                        '<i class="bi bi-x-circle text-muted"></i> 否'
+                    }
+                </td>
+                <td>${formatDateTime(log.download_time)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick="redownload('${log.document_id}', ${log.include_images})"
+                            title="再次下载">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+        
+        // 显示/隐藏"加载更多"按钮
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+        if (displayedCount >= filteredLogs.length) {
+            loadMoreBtn.style.display = 'none';
+        } else {
+            loadMoreBtn.style.display = 'inline-block';
+        }
+    }
+    
+    // 加载更多记录
+    function loadMoreLogs() {
+        renderLogs();
+    }
+    
+    // 快速下载
+    function quickDownload(type) {
+        const docId = document.getElementById('quickDocId').value.trim();
+        
+        if (!docId) {
+            showToast('请输入文档ID', 'warning');
+            return;
+        }
+        
+        const includeImages = type === 'zip';
+        const url = `/api/v1/download/${docId}?include_images=${includeImages}`;
+        
+        window.open(url, '_blank');
+        showToast('开始下载...', 'success');
+        
+        // 刷新记录
+        setTimeout(() => {
+            loadLogs();
+        }, 2000);
+    }
+    
+    // 再次下载
+    function redownload(docId, includeImages) {
+        const url = `/api/v1/download/${docId}?include_images=${includeImages}`;
+        window.open(url, '_blank');
+        showToast('开始下载...', 'success');
+    }
+</script>
+{% endblock %}

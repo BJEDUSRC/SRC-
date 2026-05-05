@@ -1,0 +1,647 @@
+{% extends "base.html" %}
+
+{% block title %}数据脱敏 - SRC脱敏标注数据管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .text-area-container {
+        position: relative;
+    }
+    .char-count {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    .comparison-container {
+        display: flex;
+        gap: 20px;
+    }
+    .comparison-panel {
+        flex: 1;
+        min-width: 0;
+    }
+    .comparison-panel textarea {
+        height: 300px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 14px;
+    }
+    .stats-badge {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+    @media (max-width: 768px) {
+        .comparison-container {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">首页</a></li>
+        <li class="breadcrumb-item active">数据脱敏</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- 脱敏表单卡片 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-shield-lock"></i> 文本数据脱敏</span>
+                <div>
+                    <span class="badge bg-primary stats-badge" id="sensitiveCount">
+                        <i class="bi bi-exclamation-triangle"></i> 敏感信息: 0
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 文件上传区域 -->
+                <div class="mb-4">
+                    <label class="form-label">
+                        <i class="bi bi-file-earmark-arrow-up"></i> 或上传MD文件
+                    </label>
+                    <div class="input-group">
+                        <input type="file" 
+                               class="form-control" 
+                               id="mdFileInput" 
+                               accept=".md,.markdown"
+                               style="display: none;">
+                        <button type="button" 
+                                class="btn btn-outline-primary" 
+                                onclick="document.getElementById('mdFileInput').click()">
+                            <i class="bi bi-upload"></i> 选择MD文件
+                        </button>
+                        <span class="input-group-text" id="fileNameDisplay">未选择文件</span>
+                        <button type="button" 
+                                class="btn btn-outline-success" 
+                                id="uploadAndDesensitizeBtn"
+                                style="display: none;">
+                            <i class="bi bi-shield-lock"></i> 上传并脱敏
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        <i class="bi bi-info-circle"></i>
+                        支持 .md 和 .markdown 格式，最大文件大小：100MB
+                    </div>
+                </div>
+                
+                <!-- 文本对比区域 -->
+                <div class="comparison-container">
+                    <!-- 原始文本 -->
+                    <div class="comparison-panel">
+                        <label for="originalText" class="form-label">
+                            <i class="bi bi-file-text"></i> 原始文本
+                        </label>
+                        <div class="text-area-container">
+                            <textarea class="form-control" 
+                                      id="originalText" 
+                                      placeholder="在此输入或粘贴需要脱敏的文本内容...
+
+示例文本：
+张三的身份证号是110101199001011234，手机号13812345678，
+IP地址192.168.1.100，邮箱zhangsan@example.com。
+他住在北京市朝阳区某某路123号。"
+                                      rows="12"></textarea>
+                            <span class="char-count" id="originalCharCount">0 字符</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 脱敏结果 -->
+                    <div class="comparison-panel">
+                        <label for="desensitizedText" class="form-label">
+                            <i class="bi bi-shield-check"></i> 脱敏结果
+                        </label>
+                        <div class="text-area-container">
+                            <textarea class="form-control" 
+                                      id="desensitizedText" 
+                                      placeholder="脱敏后的文本将显示在这里..."
+                                      rows="12"
+                                      readonly></textarea>
+                            <span class="char-count" id="resultCharCount">0 字符</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 按钮组 -->
+                <div class="row mt-4">
+                    <div class="col-md-8">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-success btn-lg btn-icon" id="desensitizeBtn">
+                                <i class="bi bi-shield-lock"></i>
+                                开始脱敏
+                            </button>
+                            <button type="button" class="btn btn-info btn-icon" id="analyzeBtn">
+                                <i class="bi bi-search"></i>
+                                敏感信息分析
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-icon" id="clearBtn">
+                                <i class="bi bi-trash"></i>
+                                清空
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                            <button type="button" class="btn btn-outline-primary btn-icon" id="copyResultBtn">
+                                <i class="bi bi-clipboard"></i>
+                                复制结果
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-icon" id="downloadResultBtn">
+                                <i class="bi bi-download"></i>
+                                下载结果
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 脱敏统计卡片 -->
+        <div class="card mt-4" id="statsCard" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-bar-chart"></i> 脱敏统计
+            </div>
+            <div class="card-body">
+                <div class="row" id="statsContent">
+                    <!-- 统计内容将动态填充 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 敏感信息分析结果 -->
+        <div class="card mt-4" id="analysisCard" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-exclamation-triangle"></i> 敏感信息分析结果
+            </div>
+            <div class="card-body">
+                <div id="analysisContent">
+                    <!-- 分析内容将动态填充 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 使用说明 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-question-circle"></i> 使用说明
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>支持的敏感信息类型：</h6>
+                        <ul class="mb-3">
+                            <li><strong>网络信息：</strong>IP地址、MAC地址、内网域名、敏感端口</li>
+                            <li><strong>身份信息：</strong>身份证号、护照号、姓名</li>
+                            <li><strong>联系方式：</strong>手机号、邮箱、座机</li>
+                            <li><strong>地址信息：</strong>家庭地址、工作地址、GPS坐标</li>
+                            <li><strong>金融信息：</strong>银行卡号、交易流水号</li>
+                            <li><strong>认证凭证：</strong>密码、Token、API密钥、JWT</li>
+                            <li><strong>备案信息：</strong>ICP备案号、公安备案号</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>脱敏模式说明：</h6>
+                        <ul class="mb-0">
+                            <li><strong>正则脱敏：</strong>使用预定义规则快速匹配标准格式的敏感信息</li>
+                            <li><strong>AI智能脱敏：</strong>使用大模型理解上下文，识别隐含的敏感信息</li>
+                            <li><strong>LLM优先模式：</strong>先由AI全面分析，再用正则补充检查遗漏</li>
+                            <li><strong>传统模式：</strong>先用正则预处理，再由AI深度检查</li>
+                        </ul>
+                        
+                        <p class="mb-0">
+                            <strong>提示：</strong>使用AI大模型智能识别并处理各类敏感信息。
+                        </p>
+                        
+                        <h6 class="mt-3">文件上传说明：</h6>
+                        <ul class="mb-0">
+                            <li><strong>支持格式：</strong>.md 和 .markdown 文件</li>
+                            <li><strong>文件大小：</strong>最大 100MB</li>
+                            <li><strong>编码格式：</strong>支持 UTF-8 和 GBK 编码</li>
+                            <li><strong>处理方式：</strong>上传后自动读取文件内容并进行脱敏处理</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const originalText = document.getElementById('originalText');
+    const desensitizedText = document.getElementById('desensitizedText');
+    const desensitizeBtn = document.getElementById('desensitizeBtn');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyResultBtn = document.getElementById('copyResultBtn');
+    const downloadResultBtn = document.getElementById('downloadResultBtn');
+    const statsCard = document.getElementById('statsCard');
+    const analysisCard = document.getElementById('analysisCard');
+    const mdFileInput = document.getElementById('mdFileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const uploadAndDesensitizeBtn = document.getElementById('uploadAndDesensitizeBtn');
+    
+    // 文件选择处理
+    mdFileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            // 验证文件类型
+            const fileName = file.name.toLowerCase();
+            if (!fileName.endsWith('.md') && !fileName.endsWith('.markdown')) {
+                showToast('请选择MD或Markdown格式的文件', 'warning');
+                this.value = '';
+                fileNameDisplay.textContent = '未选择文件';
+                uploadAndDesensitizeBtn.style.display = 'none';
+                return;
+            }
+            
+            // 验证文件大小（100MB）
+            if (file.size > 100 * 1024 * 1024) {
+                showToast('文件大小不能超过100MB', 'warning');
+                this.value = '';
+                fileNameDisplay.textContent = '未选择文件';
+                uploadAndDesensitizeBtn.style.display = 'none';
+                return;
+            }
+            
+            fileNameDisplay.textContent = file.name;
+            uploadAndDesensitizeBtn.style.display = 'inline-block';
+        } else {
+            fileNameDisplay.textContent = '未选择文件';
+            uploadAndDesensitizeBtn.style.display = 'none';
+        }
+    });
+    
+    // 上传并脱敏按钮
+    uploadAndDesensitizeBtn.addEventListener('click', async function() {
+        const file = mdFileInput.files[0];
+        if (!file) {
+            showToast('请先选择文件', 'warning');
+            return;
+        }
+        
+        // 禁用按钮
+        uploadAndDesensitizeBtn.disabled = true;
+        uploadAndDesensitizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>处理中...';
+        showLoading();
+        
+        try {
+            // 准备表单数据
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // 发送请求
+            const response = await fetch('/api/v1/desensitize/file', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '文件脱敏失败');
+            }
+            
+            const result = await response.json();
+            
+            // 将结果填充到文本区域
+            originalText.value = ''; // 清空原始文本（文件内容不显示）
+            desensitizedText.value = result.desensitized_text;
+            document.getElementById('originalCharCount').textContent = '0 字符';
+            document.getElementById('resultCharCount').textContent = result.desensitized_text.length + ' 字符';
+            
+            // 更新敏感信息计数
+            const totalSensitive = Object.values(result.regex_stats || {}).reduce((a, b) => a + b, 0);
+            document.getElementById('sensitiveCount').innerHTML = 
+                `<i class="bi bi-exclamation-triangle"></i> 已处理: ${totalSensitive} 处`;
+            
+            // 显示统计
+            showStats(result);
+            
+            showToast('文件脱敏处理完成！', 'success');
+            
+        } catch (error) {
+            console.error('文件脱敏失败:', error);
+            showToast(error.message, 'danger');
+        } finally {
+            uploadAndDesensitizeBtn.disabled = false;
+            uploadAndDesensitizeBtn.innerHTML = '<i class="bi bi-shield-lock"></i> 上传并脱敏';
+            hideLoading();
+        }
+    });
+    
+    // 更新字符计数
+    originalText.addEventListener('input', function() {
+        document.getElementById('originalCharCount').textContent = this.value.length + ' 字符';
+    });
+    
+    // 清空按钮
+    clearBtn.addEventListener('click', function() {
+        originalText.value = '';
+        desensitizedText.value = '';
+        document.getElementById('originalCharCount').textContent = '0 字符';
+        document.getElementById('resultCharCount').textContent = '0 字符';
+        document.getElementById('sensitiveCount').innerHTML = '<i class="bi bi-exclamation-triangle"></i> 敏感信息: 0';
+        statsCard.style.display = 'none';
+        analysisCard.style.display = 'none';
+        // 清空文件选择
+        mdFileInput.value = '';
+        fileNameDisplay.textContent = '未选择文件';
+        uploadAndDesensitizeBtn.style.display = 'none';
+    });
+    
+    // 脱敏按钮
+    desensitizeBtn.addEventListener('click', async function() {
+        const text = originalText.value.trim();
+        
+        if (!text) {
+            showToast('请输入需要脱敏的文本', 'warning');
+            return;
+        }
+        
+        // 禁用按钮
+        desensitizeBtn.disabled = true;
+        desensitizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>处理中...';
+        
+        try {
+            const response = await fetch('/api/v1/desensitize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: text
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '脱敏失败');
+            }
+            
+            const result = await response.json();
+            
+            // 显示结果
+            desensitizedText.value = result.desensitized_text;
+            document.getElementById('resultCharCount').textContent = result.desensitized_text.length + ' 字符';
+            
+            // 更新敏感信息计数
+            const totalSensitive = Object.values(result.regex_stats || {}).reduce((a, b) => a + b, 0);
+            document.getElementById('sensitiveCount').innerHTML = 
+                `<i class="bi bi-exclamation-triangle"></i> 已处理: ${totalSensitive} 处`;
+            
+            // 显示统计
+            showStats(result);
+            
+            showToast('脱敏处理完成！', 'success');
+            
+        } catch (error) {
+            console.error('脱敏失败:', error);
+            showToast(error.message, 'danger');
+        } finally {
+            desensitizeBtn.disabled = false;
+            desensitizeBtn.innerHTML = '<i class="bi bi-shield-lock"></i> 开始脱敏';
+        }
+    });
+    
+    // 分析按钮
+    analyzeBtn.addEventListener('click', async function() {
+        const text = originalText.value.trim();
+        
+        if (!text) {
+            showToast('请输入需要分析的文本', 'warning');
+            return;
+        }
+        
+        // 禁用按钮
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>分析中...';
+        
+        try {
+            const response = await fetch('/api/v1/desensitize/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: text })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '分析失败');
+            }
+            
+            const result = await response.json();
+            
+            // 显示分析结果
+            showAnalysis(result);
+            
+            // 更新敏感信息计数
+            document.getElementById('sensitiveCount').innerHTML = 
+                `<i class="bi bi-exclamation-triangle"></i> 敏感信息: ${result.total_sensitive_count}`;
+            
+            showToast('分析完成！', 'success');
+            
+        } catch (error) {
+            console.error('分析失败:', error);
+            showToast(error.message, 'danger');
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerHTML = '<i class="bi bi-search"></i> 敏感信息分析';
+        }
+    });
+    
+    // 显示脱敏统计
+    function showStats(result) {
+        statsCard.style.display = 'block';
+        
+        let statsHTML = '';
+        
+        // 方法信息
+        statsHTML += `
+            <div class="col-md-3 mb-3">
+                <div class="card border-primary h-100">
+                    <div class="card-body text-center">
+                        <div class="fs-4 text-primary mb-2">
+                            <i class="bi bi-gear"></i>
+                        </div>
+                        <h6 class="card-title">脱敏方法</h6>
+                        <p class="card-text fs-5">${result.method || 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // LLM状态
+        statsHTML += `
+            <div class="col-md-3 mb-3">
+                <div class="card border-${result.llm_success ? 'success' : 'secondary'} h-100">
+                    <div class="card-body text-center">
+                        <div class="fs-4 text-${result.llm_success ? 'success' : 'secondary'} mb-2">
+                            <i class="bi bi-${result.llm_success ? 'check-circle' : 'x-circle'}"></i>
+                        </div>
+                        <h6 class="card-title">AI脱敏</h6>
+                        <p class="card-text fs-5">${result.llm_success ? '成功' : '未使用'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Token使用
+        if (result.llm_tokens > 0) {
+            statsHTML += `
+                <div class="col-md-3 mb-3">
+                    <div class="card border-info h-100">
+                        <div class="card-body text-center">
+                            <div class="fs-4 text-info mb-2">
+                                <i class="bi bi-coin"></i>
+                            </div>
+                            <h6 class="card-title">Token消耗</h6>
+                            <p class="card-text fs-5">${result.llm_tokens}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 估算处理信息数
+        const originalLength = originalText.value.length;
+        const desensitizedLength = result.desensitized_text.length;
+        const estimatedMatches = originalLength > 0 ? Math.floor((originalLength - desensitizedLength) / 5) : 0;
+        
+        statsHTML += `
+            <div class="col-md-3 mb-3">
+                <div class="card border-primary h-100">
+                    <div class="card-body text-center">
+                        <div class="fs-4 text-primary mb-2">
+                            <i class="bi bi-check-all"></i>
+                        </div>
+                        <h6 class="card-title">估算处理</h6>
+                        <p class="card-text fs-5">${estimatedMatches} 处</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('statsContent').innerHTML = statsHTML;
+    }
+    
+    // 显示分析结果
+    function showAnalysis(result) {
+        analysisCard.style.display = 'block';
+        
+        const riskColors = {
+            'low': 'success',
+            'medium': 'warning',
+            'high': 'danger',
+            'critical': 'danger'
+        };
+        
+        const riskNames = {
+            'low': '低风险',
+            'medium': '中等风险',
+            'high': '高风险',
+            'critical': '严重风险'
+        };
+        
+        let analysisHTML = `
+            <div class="alert alert-${riskColors[result.risk_level] || 'info'}">
+                <h5 class="alert-heading">
+                    <i class="bi bi-shield-exclamation"></i>
+                    风险等级: ${riskNames[result.risk_level] || result.risk_level}
+                </h5>
+                <p class="mb-0">共检测到 <strong>${result.total_sensitive_count}</strong> 处敏感信息</p>
+            </div>
+        `;
+        
+        // 建议
+        if (result.recommendations && result.recommendations.length > 0) {
+            analysisHTML += '<h6 class="mt-3">处理建议：</h6><ul>';
+            for (const rec of result.recommendations) {
+                analysisHTML += `<li>${rec}</li>`;
+            }
+            analysisHTML += '</ul>';
+        }
+        
+        // 敏感信息类型统计
+        if (result.sensitive_types && Object.keys(result.sensitive_types).length > 0) {
+            analysisHTML += '<h6 class="mt-3">敏感信息分布：</h6><div class="row">';
+            
+            const typeNames = {
+                'ipv4': 'IPv4地址',
+                'ipv6': 'IPv6地址',
+                'phone_cn': '手机号',
+                'id_card': '身份证号',
+                'email': '邮箱',
+                'bank_card': '银行卡号',
+                'mac_address': 'MAC地址',
+                'license_plate': '车牌号',
+                'passport': '护照号',
+                'private_ip': '私有IP'
+            };
+            
+            for (const [key, count] of Object.entries(result.sensitive_types)) {
+                const typeName = typeNames[key] || key;
+                analysisHTML += `
+                    <div class="col-md-3 col-6 mb-2">
+                        <div class="border rounded p-2 text-center">
+                            <div class="fw-bold">${typeName}</div>
+                            <div class="text-danger fs-5">${count}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            analysisHTML += '</div>';
+        }
+        
+        document.getElementById('analysisContent').innerHTML = analysisHTML;
+    }
+    
+    // 复制结果
+    copyResultBtn.addEventListener('click', function() {
+        const text = desensitizedText.value;
+        if (!text) {
+            showToast('没有可复制的内容', 'warning');
+            return;
+        }
+        copyToClipboard(text);
+    });
+    
+    // 下载结果
+    downloadResultBtn.addEventListener('click', function() {
+        const text = desensitizedText.value;
+        if (!text) {
+            showToast('没有可下载的内容', 'warning');
+            return;
+        }
+        
+        // 获取原始文件名（如果有上传文件）
+        let filename = 'desensitized_text.md';
+        if (mdFileInput.files[0]) {
+            const originalName = mdFileInput.files[0].name;
+            const nameWithoutExt = originalName.replace(/\.(md|markdown)$/i, '');
+            filename = `${nameWithoutExt}_desensitized.md`;
+        }
+        
+        const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('文件下载已开始', 'success');
+    });
+</script>
+{% endblock %}

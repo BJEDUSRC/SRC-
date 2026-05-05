@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}PDF转换 - SRC脱敏标注数据管理系统{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">首页</a></li>
+        <li class="breadcrumb-item active">PDF转换</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- 转换表单卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-file-earmark-pdf"></i> PDF 转 Markdown
+            </div>
+            <div class="card-body">
+                <form id="convertForm">
+                    <!-- 文件选择区域 -->
+                    <div class="mb-4">
+                        <label for="pdfFile" class="form-label">选择 PDF 文件</label>
+                        <input type="file" 
+                               class="form-control form-control-lg" 
+                               id="pdfFile" 
+                               accept=".pdf"
+                               required>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i>
+                            支持的文件格式：PDF，最大文件大小：100MB
+                        </div>
+                    </div>
+                    
+                    <!-- 转换选项 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="extractImages" 
+                                       checked>
+                                <label class="form-check-label" for="extractImages">
+                                    <strong>提取图片</strong>
+                                    <span class="text-muted d-block small">
+                                        从PDF中提取所有图片并保存
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="extractTables" 
+                                       checked>
+                                <label class="form-check-label" for="extractTables">
+                                    <strong>提取表格</strong>
+                                    <span class="text-muted d-block small">
+                                        保留PDF中的表格结构
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 按钮组 -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-warning btn-lg btn-icon" id="convertBtn">
+                            <i class="bi bi-arrow-repeat"></i>
+                            开始转换
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="resetBtn">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            重置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 转换进度卡片 -->
+        <div class="card mt-4" id="progressCard" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-hourglass-split"></i> 转换进度
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>转换进度</span>
+                        <span id="convertProgress">0%</span>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" 
+                             id="convertProgressBar"
+                             role="progressbar" 
+                             style="width: 0%">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info" id="statusAlert">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">处理中...</span>
+                        </div>
+                        <div>
+                            <strong id="statusTitle">准备转换...</strong>
+                            <div class="small" id="statusMessage">请稍候</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 转换结果卡片 -->
+        <div class="card mt-4" id="resultCard" style="display: none;">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-check-circle"></i> 转换成功
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <strong>原始文件名：</strong>
+                        <p id="resultFilename" class="text-muted mb-0"></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>提取图片数：</strong>
+                        <p id="resultImagesCount" class="text-muted mb-0"></p>
+                    </div>
+                </div>
+                
+                <!-- Markdown预览 -->
+                <div class="mb-3">
+                    <strong>Markdown 预览：</strong>
+                    <div class="mt-2 border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                        <pre id="markdownPreview" class="mb-0" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <button type="button" class="btn btn-primary btn-icon" id="downloadMdBtn">
+                        <i class="bi bi-download"></i>
+                        下载 Markdown 文件
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="copyMdBtn">
+                        <i class="bi bi-clipboard"></i>
+                        复制内容到剪贴板
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
+                        <i class="bi bi-plus-circle"></i>
+                        继续转换
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 使用说明 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-question-circle"></i> 使用说明
+            </div>
+            <div class="card-body">
+                <h6>功能介绍：</h6>
+                <p>此功能仅将 PDF 文件转换为 Markdown 格式，<strong class="text-danger">不进行数据脱敏处理</strong>。</p>
+                
+                <h6>转换流程：</h6>
+                <ol class="mb-3">
+                    <li>选择要转换的 PDF 文件</li>
+                    <li>选择是否提取图片和表格</li>
+                    <li>点击"开始转换"按钮</li>
+                    <li>等待系统处理完成</li>
+                    <li>预览并下载 Markdown 文件</li>
+                </ol>
+                
+                <h6>转换特性：</h6>
+                <ul class="mb-0">
+                    <li><strong>文本提取：</strong>保留PDF原始排版结构，包括标题层级、段落、列表等</li>
+                    <li><strong>图片提取：</strong>提取PDF中的所有图片并生成Markdown图片引用</li>
+                    <li><strong>表格处理：</strong>将PDF表格转换为文本内容</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const convertForm = document.getElementById('convertForm');
+    const pdfFile = document.getElementById('pdfFile');
+    const extractImages = document.getElementById('extractImages');
+    const extractTables = document.getElementById('extractTables');
+    const convertBtn = document.getElementById('convertBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const progressCard = document.getElementById('progressCard');
+    const resultCard = document.getElementById('resultCard');
+    
+    let currentMarkdown = '';
+    let currentFilename = '';
+    
+    // 重置表单
+    resetBtn.addEventListener('click', function() {
+        convertForm.reset();
+        progressCard.style.display = 'none';
+        resultCard.style.display = 'none';
+    });
+    
+    // 表单提交
+    convertForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!pdfFile.files[0]) {
+            showToast('请选择要转换的PDF文件', 'warning');
+            return;
+        }
+        
+        const file = pdfFile.files[0];
+        
+        // 验证文件类型
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            showToast('请选择PDF格式的文件', 'danger');
+            return;
+        }
+        
+        // 验证文件大小（100MB）
+        if (file.size > 100 * 1024 * 1024) {
+            showToast('文件大小不能超过100MB', 'danger');
+            return;
+        }
+        
+        // 显示进度卡片
+        progressCard.style.display = 'block';
+        resultCard.style.display = 'none';
+        
+        // 禁用表单
+        convertBtn.disabled = true;
+        pdfFile.disabled = true;
+        extractImages.disabled = true;
+        extractTables.disabled = true;
+        
+        try {
+            // 准备表单数据
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('extract_images', extractImages.checked);
+            formData.append('extract_tables', extractTables.checked);
+            
+            // 更新状态
+            updateStatus('转换中', '正在处理PDF文件...');
+            updateProgress(30);
+            
+            // 发送请求
+            const response = await fetch('/api/v1/convert', {
+                method: 'POST',
+                body: formData
+            });
+            
+            updateProgress(70);
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '转换失败');
+            }
+            
+            const result = await response.json();
+            
+            updateProgress(100);
+            
+            // 保存结果
+            currentMarkdown = result.markdown_content;
+            currentFilename = result.filename.replace('.pdf', '.md');
+            
+            // 显示结果
+            showResult(result);
+            showToast('PDF转换成功！', 'success');
+            
+        } catch (error) {
+            console.error('转换失败:', error);
+            updateStatus('转换失败', error.message, 'danger');
+            showToast(error.message, 'danger');
+            
+            // 重新启用表单
+            convertBtn.disabled = false;
+            pdfFile.disabled = false;
+            extractImages.disabled = false;
+            extractTables.disabled = false;
+        }
+    });
+    
+    // 更新进度条
+    function updateProgress(percent) {
+        const progressBar = document.getElementById('convertProgressBar');
+        const progressText = document.getElementById('convertProgress');
+        progressBar.style.width = percent + '%';
+        progressText.textContent = percent + '%';
+    }
+    
+    // 更新状态
+    function updateStatus(title, message, type = 'info') {
+        const statusAlert = document.getElementById('statusAlert');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        statusAlert.className = `alert alert-${type}`;
+        statusTitle.textContent = title;
+        statusMessage.textContent = message;
+    }
+    
+    // 显示结果
+    function showResult(data) {
+        progressCard.style.display = 'none';
+        resultCard.style.display = 'block';
+        
+        document.getElementById('resultFilename').textContent = data.filename;
+        document.getElementById('resultImagesCount').textContent = data.images_count + ' 张';
+        
+        // 显示Markdown预览（截取前2000字符）
+        const preview = data.markdown_content.length > 2000 
+            ? data.markdown_content.substring(0, 2000) + '\n\n... (内容已截断，下载查看完整内容)'
+            : data.markdown_content;
+        document.getElementById('markdownPreview').textContent = preview;
+    }
+    
+    // 下载Markdown文件
+    document.getElementById('downloadMdBtn').addEventListener('click', function() {
+        if (!currentMarkdown) {
+            showToast('没有可下载的内容', 'warning');
+            return;
+        }
+        
+        const blob = new Blob([currentMarkdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('文件下载已开始', 'success');
+    });
+    
+    // 复制到剪贴板
+    document.getElementById('copyMdBtn').addEventListener('click', function() {
+        if (!currentMarkdown) {
+            showToast('没有可复制的内容', 'warning');
+            return;
+        }
+        
+        copyToClipboard(currentMarkdown);
+    });
+</script>
+{% endblock %}

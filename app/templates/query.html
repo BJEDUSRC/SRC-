@@ -1,0 +1,665 @@
+{% extends "base.html" %}
+
+{% block title %}查询文档 - SRC脱敏标注数据管理系统{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">首页</a></li>
+        <li class="breadcrumb-item active">查询文档</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 搜索筛选区域 -->
+    <div class="col-lg-3">
+        <div class="card sticky-top" style="top: 1rem;">
+            <div class="card-header">
+                <i class="bi bi-funnel"></i> 筛选条件
+            </div>
+            <div class="card-body">
+                <form id="searchForm">
+                    <!-- 漏洞等级 -->
+                    <div class="mb-3">
+                        <label class="form-label">漏洞等级</label>
+                        <select class="form-select" id="vulnerabilityLevel">
+                            <option value="">全部</option>
+                            <option value="严重">严重</option>
+                            <option value="高危">高危</option>
+                            <option value="中危">中危</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+
+                    <!-- 关键词搜索 -->
+                    <div class="mb-3">
+                        <label for="keyword" class="form-label">关键词</label>
+                        <input type="text" class="form-control" id="keyword" placeholder="搜索文件名或内容">
+                    </div>
+
+                    <!-- 文件名筛选 -->
+                    <div class="mb-3">
+                        <label for="filename" class="form-label">文件名</label>
+                        <input type="text" class="form-control" id="filename" placeholder="输入文件名">
+                    </div>
+
+                    <!-- 时间范围 -->
+                    <div class="mb-3">
+                        <label class="form-label">上传时间</label>
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <input type="date" class="form-control" id="dateFrom" placeholder="开始日期">
+                            </div>
+                            <div class="col-12">
+                                <input type="date" class="form-control" id="dateTo" placeholder="结束日期">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 脱敏状态 -->
+                    <div class="mb-3">
+                        <label class="form-label">脱敏状态</label>
+                        <select class="form-select" id="desensitized">
+                            <option value="">全部</option>
+                            <option value="true">已脱敏</option>
+                            <option value="false">未脱敏</option>
+                        </select>
+                    </div>
+
+                    <!-- 标签筛选 -->
+                    <div class="mb-3">
+                        <label for="tags" class="form-label">标签</label>
+                        <input type="text" class="form-control" id="tags" placeholder="输入标签（逗号分隔）">
+                    </div>
+
+                    <!-- 排序方式 -->
+                    <div class="mb-3">
+                        <label for="sortBy" class="form-label">排序方式</label>
+                        <select class="form-select" id="sortBy">
+                            <option value="created_at">上传时间</option>
+                            <option value="filename">文件名</option>
+                            <option value="file_size">文件大小</option>
+                            <option value="images_count">图片数量</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sortOrder" class="form-label">排序顺序</label>
+                        <select class="form-select" id="sortOrder">
+                            <option value="desc">降序</option>
+                            <option value="asc">升序</option>
+                        </select>
+                    </div>
+
+                    <!-- 按钮组 -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-icon">
+                            <i class="bi bi-search"></i>
+                            搜索
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="resetBtn">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            重置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜索结果区域 -->
+    <div class="col-lg-9">
+        <!-- 工具栏 -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted">共找到</span>
+                            <strong class="text-primary fs-5" id="totalCount">0</strong>
+                            <span class="text-muted">个文档</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-outline-primary btn-sm" id="selectAllBtn">
+                            <i class="bi bi-check-square"></i>
+                            全选
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" id="batchDownloadBtn" disabled>
+                            <i class="bi bi-download"></i>
+                            批量下载 (<span id="selectedCount">0</span>)
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" id="batchDeleteBtn" disabled>
+                            <i class="bi bi-trash"></i>
+                            批量删除 (<span id="selectedDeleteCount">0</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载指示器 -->
+        <div id="loadingArea" style="display: none;" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="text-muted mt-2">正在搜索...</p>
+        </div>
+
+        <!-- 结果列表 -->
+        <div id="resultsList">
+        </div>
+
+        <!-- 空结果提示 -->
+        <div id="emptyResult" style="display: none;" class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-inbox fs-1 text-muted"></i>
+                <p class="text-muted mt-3">没有找到符合条件的文档</p>
+                <button class="btn btn-primary" onclick="resetSearch()">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    重置搜索
+                </button>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        <nav id="paginationArea" style="display: none;">
+            <ul class="pagination justify-content-center" id="pagination">
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .doc-card {
+        transition: all 0.2s;
+        border-left: 4px solid transparent;
+    }
+
+    .doc-card:hover {
+        border-left-color: var(--primary-color);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
+    }
+
+    .doc-card.selected {
+        border-left-color: var(--success-color);
+        background-color: #f8f9fa;
+    }
+
+    .tag-badge {
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+    let selectedDocs = new Set();
+
+    // 防抖：文本输入变化后延迟执行搜索，避免频繁请求
+    let searchDebounceTimer = null;
+    const DEBOUNCE_MS = 400;
+
+    function triggerSearch() {
+        currentPage = 1;
+        selectedDocs.clear();
+        searchDocuments();
+    }
+
+    function debouncedSearch() {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(triggerSearch, DEBOUNCE_MS);
+    }
+
+    // 页面加载时执行初始搜索
+    document.addEventListener('DOMContentLoaded', function () {
+        searchDocuments();
+
+        // 文本类筛选：输入时防抖触发搜索
+        document.getElementById('keyword').addEventListener('input', debouncedSearch);
+        document.getElementById('filename').addEventListener('input', debouncedSearch);
+        document.getElementById('tags').addEventListener('input', debouncedSearch);
+
+        // 下拉与日期：变化时立即触发搜索
+        document.getElementById('desensitized').addEventListener('change', triggerSearch);
+        document.getElementById('vulnerabilityLevel').addEventListener('change', triggerSearch);
+        document.getElementById('sortBy').addEventListener('change', triggerSearch);
+        document.getElementById('sortOrder').addEventListener('change', triggerSearch);
+        document.getElementById('dateFrom').addEventListener('change', triggerSearch);
+        document.getElementById('dateTo').addEventListener('change', triggerSearch);
+    });
+
+    // 搜索表单提交（保留按钮，提交时立即搜索）
+    document.getElementById('searchForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        triggerSearch();
+    });
+
+    // 重置按钮
+    document.getElementById('resetBtn').addEventListener('click', function () {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        document.getElementById('searchForm').reset();
+        currentPage = 1;
+        selectedDocs.clear();
+        searchDocuments();
+    });
+
+    // 全选按钮
+    document.getElementById('selectAllBtn').addEventListener('click', function () {
+        const checkboxes = document.querySelectorAll('.doc-checkbox');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+        checkboxes.forEach(cb => {
+            cb.checked = !allChecked;
+            handleCheckbox(cb);
+        });
+    });
+
+    // 批量下载按钮
+    document.getElementById('batchDownloadBtn').addEventListener('click', function () {
+        if (selectedDocs.size === 0) {
+            showToast('请先选择要下载的文档', 'warning');
+            return;
+        }
+
+        batchDownload();
+    });
+
+    // 批量删除按钮
+    document.getElementById('batchDeleteBtn').addEventListener('click', function () {
+        if (selectedDocs.size === 0) {
+            showToast('请先选择要删除的文档', 'warning');
+            return;
+        }
+
+        batchDelete();
+    });
+
+    // 搜索文档
+    async function searchDocuments() {
+        const keyword = document.getElementById('keyword').value.trim();
+        const filename = document.getElementById('filename').value.trim();
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const desensitized = document.getElementById('desensitized').value;
+        const vulnerabilityLevel = document.getElementById('vulnerabilityLevel').value;
+        const tags = document.getElementById('tags').value.trim();
+        const sortBy = document.getElementById('sortBy').value;
+        const sortOrder = document.getElementById('sortOrder').value;
+
+        // 构建查询参数
+        const params = new URLSearchParams({
+            page: currentPage,
+            page_size: 10,
+            sort_by: sortBy,
+            sort_order: sortOrder
+        });
+
+        if (keyword) params.append('keyword', keyword);
+        if (filename) params.append('filename', filename);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        if (desensitized) params.append('desensitized', desensitized);
+        if (vulnerabilityLevel) params.append('vulnerability_level', vulnerabilityLevel);
+        if (tags) params.append('tags', tags);
+
+        // 显示加载指示器
+        document.getElementById('loadingArea').style.display = 'block';
+        document.getElementById('resultsList').innerHTML = '';
+        document.getElementById('emptyResult').style.display = 'none';
+        document.getElementById('paginationArea').style.display = 'none';
+
+        try {
+            const response = await fetch(`/api/v1/documents/?${params}`);
+            const data = await response.json();
+
+            document.getElementById('loadingArea').style.display = 'none';
+
+            if (!response.ok) {
+                throw new Error(data.detail || '搜索失败');
+            }
+
+            // 更新总数
+            document.getElementById('totalCount').textContent = data.total || 0;
+
+            if (data.items && data.items.length > 0) {
+                // 显示结果
+                renderResults(data.items);
+
+                // 更新分页
+                totalPages = Math.ceil(data.total / 10);
+                renderPagination();
+            } else {
+                // 显示空结果
+                document.getElementById('emptyResult').style.display = 'block';
+            }
+        } catch (error) {
+            document.getElementById('loadingArea').style.display = 'none';
+            showToast(error.message, 'danger');
+        }
+    }
+
+    // 渲染结果列表
+    function renderResults(documents) {
+        const resultsList = document.getElementById('resultsList');
+
+        resultsList.innerHTML = documents.map(doc => `
+            <div class="card doc-card mb-3 ${selectedDocs.has(doc.id) ? 'selected' : ''}">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <input type="checkbox" 
+                                   class="form-check-input doc-checkbox" 
+                                   data-doc-id="${doc.id}"
+                                   ${selectedDocs.has(doc.id) ? 'checked' : ''}
+                                   onchange="handleCheckbox(this)">
+                        </div>
+                        <div class="col">
+                            <h5 class="card-title mb-2">
+                                <i class="bi bi-file-earmark-text text-primary"></i>
+                                ${doc.filename}
+                            </h5>
+                            
+                            <div class="mb-2">
+                                <span class="badge bg-light text-dark">
+                                    <i class="bi bi-hdd"></i> ${formatFileSize(doc.file_size || 0)}
+                                </span>
+                                ${doc.images_count > 0 ?
+                `<span class="badge bg-info">
+                                        <i class="bi bi-image"></i> ${doc.images_count} 张图片
+                                    </span>` : ''
+            }
+                                ${doc.is_desensitized ?
+                '<span class="badge bg-success"><i class="bi bi-shield-check"></i> 已脱敏</span>' :
+                '<span class="badge bg-secondary">未脱敏</span>'
+            }
+                            </div>
+                            
+                            ${doc.tags && doc.tags.length > 0 ?
+                `<div class="mb-2">
+                                    ${doc.tags.map(tag =>
+                    `<span class="badge bg-primary tag-badge">${tag}</span>`
+                ).join('')}
+                                </div>` : ''
+            }
+                            
+                            <div class="text-muted small">
+                                <i class="bi bi-clock"></i>
+                                上传于 ${formatDateTime(doc.created_at)}
+                            </div>
+                            
+                            ${doc.content_preview ?
+                `<div class="mt-2 text-muted small">
+                                    <i class="bi bi-file-text"></i>
+                                    ${doc.content_preview.substring(0, 200)}...
+                                </div>` : ''
+            }
+                        </div>
+                        <div class="col-auto">
+                            <div class="btn-group-vertical">
+                                <a href="/api/v1/download/${doc.id}?include_images=false" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="下载MD文件">
+                                    <i class="bi bi-file-earmark-text"></i> MD
+                                </a>
+                                ${doc.images_count > 0 ?
+                `<a href="/api/v1/download/${doc.id}?include_images=true" 
+                                        class="btn btn-sm btn-outline-success"
+                                        title="下载ZIP（含图片）">
+                                        <i class="bi bi-file-zip"></i> ZIP
+                                    </a>` : ''
+            }
+                                <button class="btn btn-sm btn-outline-info" 
+                                        onclick="viewStats('${doc.id}')"
+                                        title="查看统计">
+                                    <i class="bi bi-graph-up"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteDocument('${doc.id}', '${doc.filename}')"
+                                        title="删除文档">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 渲染分页
+    function renderPagination() {
+        if (totalPages <= 1) {
+            document.getElementById('paginationArea').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('paginationArea').style.display = 'block';
+        const pagination = document.getElementById('pagination');
+
+        let html = '';
+
+        // 上一页
+        html += `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">
+                    上一页
+                </a>
+            </li>
+        `;
+
+        // 页码
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        if (startPage > 1) {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(1); return false;">1</a></li>`;
+            if (startPage > 2) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${totalPages}); return false;">${totalPages}</a></li>`;
+        }
+
+        // 下一页
+        html += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">
+                    下一页
+                </a>
+            </li>
+        `;
+
+        pagination.innerHTML = html;
+    }
+
+    // 跳转页面
+    function goToPage(page) {
+        if (page < 1 || page > totalPages || page === currentPage) return;
+        currentPage = page;
+        searchDocuments();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 处理复选框
+    function handleCheckbox(checkbox) {
+        const docId = checkbox.dataset.docId;
+        const card = checkbox.closest('.doc-card');
+
+        if (checkbox.checked) {
+            selectedDocs.add(docId);
+            card.classList.add('selected');
+        } else {
+            selectedDocs.delete(docId);
+            card.classList.remove('selected');
+        }
+
+        updateSelectedCount();
+    }
+
+    // 更新选中数量
+    function updateSelectedCount() {
+        const count = selectedDocs.size;
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('selectedDeleteCount').textContent = count;
+        document.getElementById('batchDownloadBtn').disabled = count === 0;
+        document.getElementById('batchDeleteBtn').disabled = count === 0;
+    }
+
+    // 批量下载
+    async function batchDownload() {
+        showLoading();
+
+        try {
+            const response = await fetch('/api/v1/download/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    document_ids: Array.from(selectedDocs),
+                    include_images: true
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '下载失败');
+            }
+
+            // 下载文件
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'src_documents_batch.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showToast('批量下载成功', 'success');
+        } catch (error) {
+            showToast(error.message, 'danger');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 删除单个文档
+    async function deleteDocument(docId, filename) {
+        if (!confirm(`确定要删除文档"${filename}"吗？\n\n此操作将删除文档文件、图片及相关数据，且无法恢复。`)) {
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const response = await fetch(`/api/v1/documents/${docId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || '删除失败');
+            }
+
+            showToast('文档删除成功', 'success');
+
+            // 刷新列表
+            searchDocuments();
+        } catch (error) {
+            showToast(error.message, 'danger');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 批量删除文档
+    async function batchDelete() {
+        const count = selectedDocs.size;
+        if (!confirm(`确定要删除选中的 ${count} 个文档吗？\n\n此操作将删除文档文件、图片及相关数据，且无法恢复。`)) {
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const response = await fetch('/api/v1/documents/batch-delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    document_ids: Array.from(selectedDocs)
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || '批量删除失败');
+            }
+
+            showToast(`批量删除完成：成功 ${data.result.success} 个，失败 ${data.result.failed} 个`, 'success');
+
+            // 清空选中列表并刷新
+            selectedDocs.clear();
+            searchDocuments();
+        } catch (error) {
+            showToast(error.message, 'danger');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 查看统计信息
+    async function viewStats(docId) {
+        try {
+            const response = await fetch(`/api/v1/download/stats/${docId}`);
+            const stats = await response.json();
+
+            if (response.ok) {
+                alert(`下载统计：\n总下载次数：${stats.total_downloads}\n单文件下载：${stats.single_downloads}\n批量下载：${stats.batch_downloads}`);
+            }
+        } catch (error) {
+            showToast('获取统计信息失败', 'danger');
+        }
+    }
+
+    // 重置搜索
+    function resetSearch() {
+        document.getElementById('searchForm').reset();
+        currentPage = 1;
+        selectedDocs.clear();
+        searchDocuments();
+    }
+</script>
+{% endblock %}

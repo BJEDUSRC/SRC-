@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SRC脱敏标注数据管理系统{% endblock %}</title>
+
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #0dcaf0;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.3rem;
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem 0;
+        }
+
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, .075);
+            border: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            background-color: #fff;
+            border-bottom: 2px solid var(--primary-color);
+            font-weight: 600;
+            padding: 1rem 1.25rem;
+        }
+
+        .footer {
+            background-color: #fff;
+            border-top: 1px solid #dee2e6;
+            padding: 1.5rem 0;
+            margin-top: auto;
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stats-card {
+            transition: transform 0.2s;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+            {
+            % block extra_css %
+        }
+
+            {
+            % endblock %
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-lock"></i>
+                SRC脱敏标注数据管理系统
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
+                            <i class="bi bi-house-door"></i> 首页
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/upload' %}active{% endif %}" href="/upload">
+                            <i class="bi bi-cloud-upload"></i> 上传文档
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/query' %}active{% endif %}" href="/query">
+                            <i class="bi bi-search"></i> 查询文档
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/download' %}active{% endif %}" href="/download">
+                            <i class="bi bi-download"></i> 下载管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/convert' %}active{% endif %}" href="/convert">
+                            <i class="bi bi-file-earmark-pdf"></i> PDF转换
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == '/desensitize' %}active{% endif %}" href="/desensitize">
+                            <i class="bi bi-shield-lock"></i> 数据脱敏
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/api/docs" target="_blank">
+                            <i class="bi bi-code-square"></i> API文档
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 加载指示器 -->
+    <div class="overlay" id="overlay"></div>
+    <div class="loading" id="loading">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+    </div>
+
+    <!-- 主内容区域 -->
+    <main>
+        <div class="container-fluid">
+            <!-- 面包屑导航 -->
+            {% block breadcrumb %}{% endblock %}
+
+            <!-- 页面内容 -->
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-6 text-muted">
+                    <small>© 2026 SRC脱敏标注数据管理系统 | 基于 FastAPI + LangChain 构建</small>
+                </div>
+                <div class="col-md-6 text-end text-muted">
+                    <small>
+                        <i class="bi bi-github"></i>
+                        <a href="#" class="text-decoration-none text-muted">GitHub</a>
+                        |
+                        <a href="/api/docs" class="text-decoration-none text-muted">API文档</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5.3 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 通用工具函数 -->
+    <script>
+        // 显示加载指示器
+        function showLoading() {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('loading').classList.add('active');
+        }
+
+        // 隐藏加载指示器
+        function hideLoading() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        // 显示Toast消息
+        function showToast(message, type = 'success') {
+            const toastHTML = `
+                <div class="toast align-items-center text-white bg-${type} border-0" role="alert" style="position: fixed; top: 80px; right: 20px; z-index: 9999;">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.createElement('div');
+            toastContainer.innerHTML = toastHTML;
+            document.body.appendChild(toastContainer);
+
+            const toastElement = toastContainer.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+            toast.show();
+
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                document.body.removeChild(toastContainer);
+            });
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // 格式化日期时间
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已复制到剪贴板', 'success');
+            }).catch(() => {
+                showToast('复制失败', 'danger');
+            });
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
